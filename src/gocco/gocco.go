@@ -231,16 +231,16 @@ func main() {
 
 	flag.Parse()
 
-    sources = flag.Args()
-    sort.Strings(sources)
+	sources = flag.Args()
+	sort.Strings(sources)
 
 	if flag.NArg() <= 0 {
 		return
 	}
 
 	ensureDirectory("docs")
-	styles, _ := ioutil.ReadFile("resources/docco.css")
-	ioutil.WriteFile("docs/docco.css", styles, 0755)
+	styles, _ := ioutil.ReadFile("resources/gocco.css")
+	ioutil.WriteFile("docs/gocco.css", styles, 0755)
 
 	wg := new(sync.WaitGroup)
 	wg.Add(flag.NArg())
