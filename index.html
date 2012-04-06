@@ -1,0 +1,789 @@
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>gocco.go</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="gocco.css" />
+</head>
+<body>
+  <div id="container">
+    <div id="background"></div>
+    
+    <table cellpadding="0" cellspacing="0">
+      <thead>
+        <tr>
+          <th class="docs">
+            <h1>
+                gocco.go
+            </h1>
+          </th>
+          <th class="code">
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+          
+          <tr id="section-1">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-1">&#182;</a>
+              </div>
+                <p><strong>Gocco</strong> is a Go port of <a href="http://jashkenas.github.com/docco/">Docco</a>: the
+original quick-and-dirty, hundred-line-long, literate-programming-style
+documentation generator. It produces HTML that displays your comments
+alongside your code. Comments are passed through
+<a href="http://daringfireball.net/projects/markdown/syntax">Markdown</a>, and code is
+passed through <a href="http://pygments.org/">Pygments</a> syntax highlighting.  This
+page is the result of running Gocco against its own source file.</p>
+
+<p>If you install Gocco, you can run it from the command-line:</p>
+
+<p>gocco *.go</p>
+
+<p>&hellip;will generate an HTML documentation page for each of the named source
+files, with a menu linking to the other pages, saving it into a <code>docs</code>
+folder.</p>
+
+<p>The <a href="http://github.com/nikhilm/gocco">source for Gocco</a> is available on
+GitHub, and released under the MIT license.</p>
+
+<p>To install Gocco, first make sure you have <a href="http://pygments.org/">Pygments</a>
+Then, with the go tool:</p>
+
+<pre><code>go get github.com/nikhilm/gocco
+</code></pre>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">package</span> <span class="n">main</span>
+
+<span class="k">import</span> <span class="p">(</span>
+	<span class="s">&quot;bytes&quot;</span>
+	<span class="s">&quot;container/list&quot;</span>
+	<span class="s">&quot;flag&quot;</span>
+	<span class="s">&quot;github.com/russross/blackfriday&quot;</span>
+	<span class="s">&quot;io&quot;</span>
+	<span class="s">&quot;io/ioutil&quot;</span>
+	<span class="s">&quot;log&quot;</span>
+	<span class="s">&quot;os&quot;</span>
+	<span class="s">&quot;os/exec&quot;</span>
+	<span class="s">&quot;path/filepath&quot;</span>
+	<span class="s">&quot;regexp&quot;</span>
+	<span class="s">&quot;sort&quot;</span>
+	<span class="s">&quot;strings&quot;</span>
+	<span class="s">&quot;sync&quot;</span>
+	<span class="s">&quot;text/template&quot;</span>
+<span class="p">)</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-2">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-2">&#182;</a>
+              </div>
+                <h2>Types</h2>
+
+<p>Due to Go&rsquo;s statically typed nature, what is passed around in object
+literals in Docco, requires various structures</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-3">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-3">&#182;</a>
+              </div>
+                <p>A <code>Section</code> captures a piece of documentation and code
+Every time interleaving code is found between two comments
+a new <code>Section</code> is created.</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">type</span> <span class="n">Section</span> <span class="k">struct</span> <span class="p">{</span>
+	<span class="n">docsText</span> <span class="p">[]</span><span class="nb">byte</span>
+	<span class="n">codeText</span> <span class="p">[]</span><span class="nb">byte</span>
+	<span class="n">DocsHTML</span> <span class="p">[]</span><span class="nb">byte</span>
+	<span class="n">CodeHTML</span> <span class="p">[]</span><span class="nb">byte</span>
+<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-4">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-4">&#182;</a>
+              </div>
+                <p>a <code>TemplateSection</code> is a section that can be passed
+to Go&rsquo;s templating system, which expects strings.</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">type</span> <span class="n">TemplateSection</span> <span class="k">struct</span> <span class="p">{</span>
+	<span class="n">DocsHTML</span> <span class="nb">string</span>
+	<span class="n">CodeHTML</span> <span class="nb">string</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-5">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-5">&#182;</a>
+              </div>
+                <p>The <code>Index</code> field is used to create anchors to sections</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">Index</span> <span class="nb">int</span>
+<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-6">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-6">&#182;</a>
+              </div>
+                <p>a <code>Language</code> describes a programming language</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">type</span> <span class="n">Language</span> <span class="k">struct</span> <span class="p">{</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-7">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-7">&#182;</a>
+              </div>
+                <p>the <code>Pygments</code> name of the language</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">name</span> <span class="nb">string</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-8">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-8">&#182;</a>
+              </div>
+                <p>The comment delimiter</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">symbol</span> <span class="nb">string</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-9">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-9">&#182;</a>
+              </div>
+                <p>The regular expression to match the comment delimiter</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">commentMatcher</span> <span class="p">*</span><span class="n">regexp</span><span class="p">.</span><span class="n">Regexp</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-10">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-10">&#182;</a>
+              </div>
+                <p>Used as a placeholder so we can parse back Pygments output
+and put the sections together</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">dividerText</span> <span class="nb">string</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-11">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-11">&#182;</a>
+              </div>
+                <p>The HTML equivalent</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">dividerHTML</span> <span class="p">*</span><span class="n">regexp</span><span class="p">.</span><span class="n">Regexp</span>
+<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-12">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-12">&#182;</a>
+              </div>
+                <p>a <code>TemplateData</code> is per-file</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">type</span> <span class="n">TemplateData</span> <span class="k">struct</span> <span class="p">{</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-13">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-13">&#182;</a>
+              </div>
+                <p>Title of the HTML output</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">Title</span> <span class="nb">string</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-14">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-14">&#182;</a>
+              </div>
+                <p>The Sections making up this file</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">Sections</span> <span class="p">[]*</span><span class="n">TemplateSection</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-15">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-15">&#182;</a>
+              </div>
+                <p>A full list of source files so that a table-of-contents can
+be generated</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">Sources</span> <span class="p">[]</span><span class="nb">string</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-16">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-16">&#182;</a>
+              </div>
+                <p>Only generate the TOC is there is more than one file
+Go&rsquo;s templating system does not allow expressions in the
+template, so calculate it outside</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">Multiple</span> <span class="n">bool</span>
+<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-17">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-17">&#182;</a>
+              </div>
+                <p>a map of all the languages we know</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">var</span> <span class="n">languages</span> <span class="k">map</span><span class="p">[</span><span class="nb">string</span><span class="p">]*</span><span class="n">Language</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-18">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-18">&#182;</a>
+              </div>
+                <p>paths of all the source files, sorted</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">var</span> <span class="n">sources</span> <span class="p">[]</span><span class="nb">string</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-19">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-19">&#182;</a>
+              </div>
+                <p>absolute path to get resources</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">var</span> <span class="n">packageLocation</span> <span class="nb">string</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-20">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-20">&#182;</a>
+              </div>
+                <p>Wrap the code in these</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">const</span> <span class="n">highlightStart</span> <span class="p">=</span> <span class="s">&quot;&lt;div class=\&quot;highlight\&quot;&gt;&lt;pre&gt;&quot;</span>
+<span class="k">const</span> <span class="n">highlightEnd</span> <span class="p">=</span> <span class="s">&quot;&lt;/pre&gt;&lt;/div&gt;&quot;</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-21">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-21">&#182;</a>
+              </div>
+                <h3>Main documentation generation functions</h3>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-22">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-22">&#182;</a>
+              </div>
+                <p>Generate the documentation for a single source file
+by splitting it into sections, highlighting each section
+and putting it together.
+The WaitGroup is used to signal we are done, so that the main
+goroutine waits for all the sub goroutines</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">func</span> <span class="n">generateDocumentation</span><span class="p">(</span><span class="n">source</span> <span class="nb">string</span><span class="p">,</span> <span class="n">wg</span> <span class="p">*</span><span class="n">sync</span><span class="p">.</span><span class="n">WaitGroup</span><span class="p">)</span> <span class="p">{</span>
+	<span class="n">code</span><span class="p">,</span> <span class="n">err</span> <span class="p">:=</span> <span class="n">ioutil</span><span class="p">.</span><span class="n">ReadFile</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+	<span class="k">if</span> <span class="n">err</span> <span class="p">!=</span> <span class="n">nil</span> <span class="p">{</span>
+		<span class="n">log</span><span class="p">.</span><span class="n">Panic</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="n">sections</span> <span class="p">:=</span> <span class="n">parse</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">code</span><span class="p">)</span>
+	<span class="n">highlight</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">sections</span><span class="p">)</span>
+	<span class="n">generateHTML</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">sections</span><span class="p">)</span>
+	<span class="n">wg</span><span class="p">.</span><span class="n">Done</span><span class="p">()</span>
+<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-23">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-23">&#182;</a>
+              </div>
+                <p>Parse splits code into <code>Section</code>s</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">func</span> <span class="n">parse</span><span class="p">(</span><span class="n">source</span> <span class="nb">string</span><span class="p">,</span> <span class="n">code</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">)</span> <span class="p">*</span><span class="n">list</span><span class="p">.</span><span class="n">List</span> <span class="p">{</span>
+	<span class="n">lines</span> <span class="p">:=</span> <span class="n">bytes</span><span class="p">.</span><span class="n">Split</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&quot;\n&quot;</span><span class="p">))</span>
+	<span class="n">sections</span> <span class="p">:=</span> <span class="nb">new</span><span class="p">(</span><span class="n">list</span><span class="p">.</span><span class="n">List</span><span class="p">)</span>
+	<span class="n">sections</span><span class="p">.</span><span class="n">Init</span><span class="p">()</span>
+	<span class="n">language</span> <span class="p">:=</span> <span class="n">getLanguage</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+
+	<span class="k">var</span> <span class="n">hasCode</span> <span class="n">bool</span>
+	<span class="k">var</span> <span class="n">codeText</span> <span class="p">=</span> <span class="nb">new</span><span class="p">(</span><span class="n">bytes</span><span class="p">.</span><span class="n">Buffer</span><span class="p">)</span>
+	<span class="k">var</span> <span class="n">docsText</span> <span class="p">=</span> <span class="nb">new</span><span class="p">(</span><span class="n">bytes</span><span class="p">.</span><span class="n">Buffer</span><span class="p">)</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-24">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-24">&#182;</a>
+              </div>
+                <p>save a new section</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">save</span> <span class="p">:=</span> <span class="k">func</span><span class="p">(</span><span class="n">docs</span><span class="p">,</span> <span class="n">code</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">)</span> <span class="p">{</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-25">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-25">&#182;</a>
+              </div>
+                <p>deep copy the slices since slices always refer to the same storage
+by default</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>		<span class="n">docsCopy</span><span class="p">,</span> <span class="n">codeCopy</span> <span class="p">:=</span> <span class="nb">make</span><span class="p">([]</span><span class="nb">byte</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">docs</span><span class="p">)),</span> <span class="nb">make</span><span class="p">([]</span><span class="nb">byte</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">code</span><span class="p">))</span>
+		<span class="n">copy</span><span class="p">(</span><span class="n">docsCopy</span><span class="p">,</span> <span class="n">docs</span><span class="p">)</span>
+		<span class="n">copy</span><span class="p">(</span><span class="n">codeCopy</span><span class="p">,</span> <span class="n">code</span><span class="p">)</span>
+		<span class="n">sections</span><span class="p">.</span><span class="n">PushBack</span><span class="p">(&amp;</span><span class="n">Section</span><span class="p">{</span><span class="n">docsCopy</span><span class="p">,</span> <span class="n">codeCopy</span><span class="p">,</span> <span class="n">nil</span><span class="p">,</span> <span class="n">nil</span><span class="p">})</span>
+	<span class="p">}</span>
+
+	<span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">line</span> <span class="p">:=</span> <span class="k">range</span> <span class="n">lines</span> <span class="p">{</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-26">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-26">&#182;</a>
+              </div>
+                <p>if the line is a comment</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>		<span class="k">if</span> <span class="n">language</span><span class="p">.</span><span class="n">commentMatcher</span><span class="p">.</span><span class="n">Match</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="p">{</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-27">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-27">&#182;</a>
+              </div>
+                <p>but there was previous code</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>			<span class="k">if</span> <span class="n">hasCode</span> <span class="p">{</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-28">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-28">&#182;</a>
+              </div>
+                <p>we need to save the existing documentation and text
+as a section and start a new section since code blocks
+have to be delimited before being sent to Pygments</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>				<span class="n">save</span><span class="p">(</span><span class="n">docsText</span><span class="p">.</span><span class="n">Bytes</span><span class="p">(),</span> <span class="n">codeText</span><span class="p">.</span><span class="n">Bytes</span><span class="p">())</span>
+				<span class="n">hasCode</span> <span class="p">=</span> <span class="n">false</span>
+				<span class="n">codeText</span><span class="p">.</span><span class="n">Reset</span><span class="p">()</span>
+				<span class="n">docsText</span><span class="p">.</span><span class="n">Reset</span><span class="p">()</span>
+			<span class="p">}</span>
+			<span class="n">docsText</span><span class="p">.</span><span class="n">Write</span><span class="p">(</span><span class="n">language</span><span class="p">.</span><span class="n">commentMatcher</span><span class="p">.</span><span class="n">ReplaceAll</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">nil</span><span class="p">))</span>
+			<span class="n">docsText</span><span class="p">.</span><span class="n">WriteString</span><span class="p">(</span><span class="s">&quot;\n&quot;</span><span class="p">)</span>
+		<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+			<span class="n">hasCode</span> <span class="p">=</span> <span class="n">true</span>
+			<span class="n">codeText</span><span class="p">.</span><span class="n">Write</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+			<span class="n">codeText</span><span class="p">.</span><span class="n">WriteString</span><span class="p">(</span><span class="s">&quot;\n&quot;</span><span class="p">)</span>
+		<span class="p">}</span>
+	<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-29">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-29">&#182;</a>
+              </div>
+                <p>save any remaining parts of the source file</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">save</span><span class="p">(</span><span class="n">docsText</span><span class="p">.</span><span class="n">Bytes</span><span class="p">(),</span> <span class="n">codeText</span><span class="p">.</span><span class="n">Bytes</span><span class="p">())</span>
+	<span class="k">return</span> <span class="n">sections</span>
+<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-30">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-30">&#182;</a>
+              </div>
+                <p><code>highlight</code> pipes the source to Pygments, section by section
+delimited by dividerText, then reads back the highlighted output,
+searches for the delimiters and extracts the HTML version of the code
+and documentation for each <code>Section</code></p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">func</span> <span class="n">highlight</span><span class="p">(</span><span class="n">source</span> <span class="nb">string</span><span class="p">,</span> <span class="n">sections</span> <span class="p">*</span><span class="n">list</span><span class="p">.</span><span class="n">List</span><span class="p">)</span> <span class="p">{</span>
+	<span class="n">language</span> <span class="p">:=</span> <span class="n">getLanguage</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+	<span class="n">pygments</span> <span class="p">:=</span> <span class="n">exec</span><span class="p">.</span><span class="n">Command</span><span class="p">(</span><span class="s">&quot;pygmentize&quot;</span><span class="p">,</span> <span class="s">&quot;-l&quot;</span><span class="p">,</span> <span class="n">language</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="s">&quot;-f&quot;</span><span class="p">,</span> <span class="s">&quot;html&quot;</span><span class="p">,</span> <span class="s">&quot;-O&quot;</span><span class="p">,</span> <span class="s">&quot;encoding=utf-8&quot;</span><span class="p">)</span>
+	<span class="n">pygmentsInput</span><span class="p">,</span> <span class="n">_</span> <span class="p">:=</span> <span class="n">pygments</span><span class="p">.</span><span class="n">StdinPipe</span><span class="p">()</span>
+	<span class="n">pygmentsOutput</span><span class="p">,</span> <span class="n">_</span> <span class="p">:=</span> <span class="n">pygments</span><span class="p">.</span><span class="n">StdoutPipe</span><span class="p">()</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-31">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-31">&#182;</a>
+              </div>
+                <p>start the process before we start piping data to it
+otherwise the pipe may block</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">pygments</span><span class="p">.</span><span class="n">Start</span><span class="p">()</span>
+	<span class="k">for</span> <span class="n">e</span> <span class="p">:=</span> <span class="n">sections</span><span class="p">.</span><span class="n">Front</span><span class="p">();</span> <span class="n">e</span> <span class="p">!=</span> <span class="n">nil</span><span class="p">;</span> <span class="n">e</span> <span class="p">=</span> <span class="n">e</span><span class="p">.</span><span class="n">Next</span><span class="p">()</span> <span class="p">{</span>
+		<span class="n">pygmentsInput</span><span class="p">.</span><span class="n">Write</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">Value</span><span class="p">.(*</span><span class="n">Section</span><span class="p">).</span><span class="n">codeText</span><span class="p">)</span>
+		<span class="k">if</span> <span class="n">e</span><span class="p">.</span><span class="n">Next</span><span class="p">()</span> <span class="p">!=</span> <span class="n">nil</span> <span class="p">{</span>
+			<span class="n">io</span><span class="p">.</span><span class="n">WriteString</span><span class="p">(</span><span class="n">pygmentsInput</span><span class="p">,</span> <span class="n">language</span><span class="p">.</span><span class="n">dividerText</span><span class="p">)</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="n">pygmentsInput</span><span class="p">.</span><span class="n">Close</span><span class="p">()</span>
+
+	<span class="n">buf</span> <span class="p">:=</span> <span class="nb">new</span><span class="p">(</span><span class="n">bytes</span><span class="p">.</span><span class="n">Buffer</span><span class="p">)</span>
+	<span class="n">io</span><span class="p">.</span><span class="n">Copy</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">pygmentsOutput</span><span class="p">)</span>
+
+	<span class="n">output</span> <span class="p">:=</span> <span class="n">buf</span><span class="p">.</span><span class="n">Bytes</span><span class="p">()</span>
+	<span class="n">output</span> <span class="p">=</span> <span class="n">bytes</span><span class="p">.</span><span class="n">Replace</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="n">highlightStart</span><span class="p">),</span> <span class="n">nil</span><span class="p">,</span> <span class="p">-</span><span class="mi">1</span><span class="p">)</span>
+	<span class="n">output</span> <span class="p">=</span> <span class="n">bytes</span><span class="p">.</span><span class="n">Replace</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="n">highlightEnd</span><span class="p">),</span> <span class="n">nil</span><span class="p">,</span> <span class="p">-</span><span class="mi">1</span><span class="p">)</span>
+
+	<span class="k">for</span> <span class="n">e</span> <span class="p">:=</span> <span class="n">sections</span><span class="p">.</span><span class="n">Front</span><span class="p">();</span> <span class="n">e</span> <span class="p">!=</span> <span class="n">nil</span><span class="p">;</span> <span class="n">e</span> <span class="p">=</span> <span class="n">e</span><span class="p">.</span><span class="n">Next</span><span class="p">()</span> <span class="p">{</span>
+		<span class="n">index</span> <span class="p">:=</span> <span class="n">language</span><span class="p">.</span><span class="n">dividerHTML</span><span class="p">.</span><span class="n">FindIndex</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+		<span class="k">if</span> <span class="n">index</span> <span class="p">==</span> <span class="n">nil</span> <span class="p">{</span>
+			<span class="n">index</span> <span class="p">=</span> <span class="p">[]</span><span class="nb">int</span><span class="p">{</span><span class="nb">len</span><span class="p">(</span><span class="n">output</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">output</span><span class="p">)}</span>
+		<span class="p">}</span>
+
+		<span class="n">fragment</span> <span class="p">:=</span> <span class="n">output</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+		<span class="n">output</span> <span class="p">=</span> <span class="n">output</span><span class="p">[</span><span class="n">index</span><span class="p">[</span><span class="mi">1</span><span class="p">]:]</span>
+		<span class="n">e</span><span class="p">.</span><span class="n">Value</span><span class="p">.(*</span><span class="n">Section</span><span class="p">).</span><span class="n">CodeHTML</span> <span class="p">=</span> <span class="n">bytes</span><span class="p">.</span><span class="n">Join</span><span class="p">([][]</span><span class="nb">byte</span><span class="p">{[]</span><span class="nb">byte</span><span class="p">(</span><span class="n">highlightStart</span><span class="p">),</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="n">highlightEnd</span><span class="p">)},</span> <span class="n">fragment</span><span class="p">)</span>
+		<span class="n">e</span><span class="p">.</span><span class="n">Value</span><span class="p">.(*</span><span class="n">Section</span><span class="p">).</span><span class="n">DocsHTML</span> <span class="p">=</span> <span class="n">blackfriday</span><span class="p">.</span><span class="n">MarkdownCommon</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">Value</span><span class="p">.(*</span><span class="n">Section</span><span class="p">).</span><span class="n">docsText</span><span class="p">)</span>
+	<span class="p">}</span>
+<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-32">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-32">&#182;</a>
+              </div>
+                <p>compute the output location (in <code>docs/</code>) for the file</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">func</span> <span class="n">destination</span><span class="p">(</span><span class="n">source</span> <span class="nb">string</span><span class="p">)</span> <span class="nb">string</span> <span class="p">{</span>
+	<span class="n">base</span> <span class="p">:=</span> <span class="n">filepath</span><span class="p">.</span><span class="n">Base</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+	<span class="k">return</span> <span class="s">&quot;docs/&quot;</span> <span class="p">+</span> <span class="n">base</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">strings</span><span class="p">.</span><span class="n">LastIndex</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">filepath</span><span class="p">.</span><span class="n">Ext</span><span class="p">(</span><span class="n">base</span><span class="p">))]</span> <span class="p">+</span> <span class="s">&quot;.html&quot;</span>
+<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-33">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-33">&#182;</a>
+              </div>
+                <p>render the final HTML</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">func</span> <span class="n">generateHTML</span><span class="p">(</span><span class="n">source</span> <span class="nb">string</span><span class="p">,</span> <span class="n">sections</span> <span class="p">*</span><span class="n">list</span><span class="p">.</span><span class="n">List</span><span class="p">)</span> <span class="p">{</span>
+	<span class="n">title</span> <span class="p">:=</span> <span class="n">filepath</span><span class="p">.</span><span class="n">Base</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+	<span class="n">dest</span> <span class="p">:=</span> <span class="n">destination</span><span class="p">(</span><span class="n">source</span><span class="p">)</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-34">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-34">&#182;</a>
+              </div>
+                <p>convert every <code>Section</code> into corresponding <code>TemplateSection</code></p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">sectionsArray</span> <span class="p">:=</span> <span class="nb">make</span><span class="p">([]*</span><span class="n">TemplateSection</span><span class="p">,</span> <span class="n">sections</span><span class="p">.</span><span class="n">Len</span><span class="p">())</span>
+	<span class="k">for</span> <span class="n">e</span><span class="p">,</span> <span class="n">i</span> <span class="p">:=</span> <span class="n">sections</span><span class="p">.</span><span class="n">Front</span><span class="p">(),</span> <span class="mi">0</span><span class="p">;</span> <span class="n">e</span> <span class="p">!=</span> <span class="n">nil</span><span class="p">;</span> <span class="n">e</span><span class="p">,</span> <span class="n">i</span> <span class="p">=</span> <span class="n">e</span><span class="p">.</span><span class="n">Next</span><span class="p">(),</span> <span class="n">i</span><span class="p">+</span><span class="mi">1</span> <span class="p">{</span>
+		<span class="k">var</span> <span class="n">sec</span> <span class="p">=</span> <span class="n">e</span><span class="p">.</span><span class="n">Value</span><span class="p">.(*</span><span class="n">Section</span><span class="p">)</span>
+		<span class="n">docsBuf</span> <span class="p">:=</span> <span class="n">bytes</span><span class="p">.</span><span class="n">NewBuffer</span><span class="p">(</span><span class="n">sec</span><span class="p">.</span><span class="n">DocsHTML</span><span class="p">)</span>
+		<span class="n">codeBuf</span> <span class="p">:=</span> <span class="n">bytes</span><span class="p">.</span><span class="n">NewBuffer</span><span class="p">(</span><span class="n">sec</span><span class="p">.</span><span class="n">CodeHTML</span><span class="p">)</span>
+		<span class="n">sectionsArray</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">=</span> <span class="p">&amp;</span><span class="n">TemplateSection</span><span class="p">{</span><span class="n">docsBuf</span><span class="p">.</span><span class="n">String</span><span class="p">(),</span> <span class="n">codeBuf</span><span class="p">.</span><span class="n">String</span><span class="p">(),</span> <span class="n">i</span> <span class="p">+</span> <span class="mi">1</span><span class="p">}</span>
+	<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-35">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-35">&#182;</a>
+              </div>
+                <p>run through the Go template</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">html</span> <span class="p">:=</span> <span class="n">goccoTemplate</span><span class="p">(</span><span class="n">TemplateData</span><span class="p">{</span><span class="n">title</span><span class="p">,</span> <span class="n">sectionsArray</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sources</span><span class="p">)</span> <span class="p">&gt;</span> <span class="mi">1</span><span class="p">})</span>
+	<span class="n">log</span><span class="p">.</span><span class="n">Println</span><span class="p">(</span><span class="s">&quot;gocco: &quot;</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="s">&quot; -&gt; &quot;</span><span class="p">,</span> <span class="n">dest</span><span class="p">)</span>
+	<span class="n">ioutil</span><span class="p">.</span><span class="n">WriteFile</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="n">html</span><span class="p">,</span> <span class="mo">0644</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">goccoTemplate</span><span class="p">(</span><span class="n">data</span> <span class="n">TemplateData</span><span class="p">)</span> <span class="p">[]</span><span class="nb">byte</span> <span class="p">{</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-36">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-36">&#182;</a>
+              </div>
+                <p>this hack is required because <code>ParseFiles</code> doesn&rsquo;t
+seem to work properly, always complaining about empty templates</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">t</span><span class="p">,</span> <span class="n">err</span> <span class="p">:=</span> <span class="n">template</span><span class="p">.</span><span class="n">New</span><span class="p">(</span><span class="s">&quot;gocco&quot;</span><span class="p">).</span><span class="n">Funcs</span><span class="p">(</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-37">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-37">&#182;</a>
+              </div>
+                <p>introduce the two functions that the template needs</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>		<span class="n">template</span><span class="p">.</span><span class="n">FuncMap</span><span class="p">{</span>
+			<span class="s">&quot;base&quot;</span><span class="p">:</span>        <span class="n">filepath</span><span class="p">.</span><span class="n">Base</span><span class="p">,</span>
+			<span class="s">&quot;destination&quot;</span><span class="p">:</span> <span class="n">destination</span><span class="p">,</span>
+		<span class="p">}).</span><span class="n">Parse</span><span class="p">(</span><span class="n">HTML</span><span class="p">)</span>
+	<span class="k">if</span> <span class="n">err</span> <span class="p">!=</span> <span class="n">nil</span> <span class="p">{</span>
+		<span class="n">panic</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="n">buf</span> <span class="p">:=</span> <span class="nb">new</span><span class="p">(</span><span class="n">bytes</span><span class="p">.</span><span class="n">Buffer</span><span class="p">)</span>
+	<span class="n">err</span> <span class="p">=</span> <span class="n">t</span><span class="p">.</span><span class="n">Execute</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+	<span class="k">if</span> <span class="n">err</span> <span class="p">!=</span> <span class="n">nil</span> <span class="p">{</span>
+		<span class="n">panic</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="n">buf</span><span class="p">.</span><span class="n">Bytes</span><span class="p">()</span>
+<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-38">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-38">&#182;</a>
+              </div>
+                <p>get a <code>Language</code> given a path</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">func</span> <span class="n">getLanguage</span><span class="p">(</span><span class="n">source</span> <span class="nb">string</span><span class="p">)</span> <span class="p">*</span><span class="n">Language</span> <span class="p">{</span>
+	<span class="k">return</span> <span class="n">languages</span><span class="p">[</span><span class="n">filepath</span><span class="p">.</span><span class="n">Ext</span><span class="p">(</span><span class="n">source</span><span class="p">)]</span>
+<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-39">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-39">&#182;</a>
+              </div>
+                <p>make sure <code>docs/</code> exists</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">func</span> <span class="n">ensureDirectory</span><span class="p">(</span><span class="n">name</span> <span class="nb">string</span><span class="p">)</span> <span class="p">{</span>
+	<span class="n">os</span><span class="p">.</span><span class="n">MkdirAll</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="mo">0755</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">setupLanguages</span><span class="p">()</span> <span class="p">{</span>
+	<span class="n">languages</span> <span class="p">=</span> <span class="nb">make</span><span class="p">(</span><span class="k">map</span><span class="p">[</span><span class="nb">string</span><span class="p">]*</span><span class="n">Language</span><span class="p">)</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-40">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-40">&#182;</a>
+              </div>
+                <p>you should add more languages here
+only the first two fields should change, the rest should
+be <code>nil, &quot;&quot;, nil</code></p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="n">languages</span><span class="p">[</span><span class="s">&quot;.go&quot;</span><span class="p">]</span> <span class="p">=</span> <span class="p">&amp;</span><span class="n">Language</span><span class="p">{</span><span class="s">&quot;go&quot;</span><span class="p">,</span> <span class="s">&quot;//&quot;</span><span class="p">,</span> <span class="n">nil</span><span class="p">,</span> <span class="s">&quot;&quot;</span><span class="p">,</span> <span class="n">nil</span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">setup</span><span class="p">()</span> <span class="p">{</span>
+	<span class="n">setupLanguages</span><span class="p">()</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-41">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-41">&#182;</a>
+              </div>
+                <p>create the regular expressions based on the language comment symbol</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre>	<span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">lang</span> <span class="p">:=</span> <span class="k">range</span> <span class="n">languages</span> <span class="p">{</span>
+		<span class="n">lang</span><span class="p">.</span><span class="n">commentMatcher</span><span class="p">,</span> <span class="n">_</span> <span class="p">=</span> <span class="n">regexp</span><span class="p">.</span><span class="n">Compile</span><span class="p">(</span><span class="s">&quot;^\\s*&quot;</span> <span class="p">+</span> <span class="n">lang</span><span class="p">.</span><span class="n">symbol</span> <span class="p">+</span> <span class="s">&quot;\\s?&quot;</span><span class="p">)</span>
+		<span class="n">lang</span><span class="p">.</span><span class="n">dividerText</span> <span class="p">=</span> <span class="s">&quot;\n&quot;</span> <span class="p">+</span> <span class="n">lang</span><span class="p">.</span><span class="n">symbol</span> <span class="p">+</span> <span class="s">&quot;DIVIDER\n&quot;</span>
+		<span class="n">lang</span><span class="p">.</span><span class="n">dividerHTML</span><span class="p">,</span> <span class="n">_</span> <span class="p">=</span> <span class="n">regexp</span><span class="p">.</span><span class="n">Compile</span><span class="p">(</span><span class="s">&quot;\\n*&lt;span class=\&quot;c1?\&quot;&gt;&quot;</span> <span class="p">+</span> <span class="n">lang</span><span class="p">.</span><span class="n">symbol</span> <span class="p">+</span> <span class="s">&quot;DIVIDER&lt;\\/span&gt;\\n*&quot;</span><span class="p">)</span>
+	<span class="p">}</span>
+<span class="p">}</span></pre></div>
+            </td>
+          </tr>
+          
+          <tr id="section-42">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-42">&#182;</a>
+              </div>
+                <p>let&rsquo;s Go!</p>
+
+            </td>
+            <td class="code">
+                <div class="highlight"><pre><span class="k">func</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+	<span class="n">setup</span><span class="p">()</span>
+
+	<span class="n">flag</span><span class="p">.</span><span class="n">Parse</span><span class="p">()</span>
+	<span class="n">sources</span> <span class="p">=</span> <span class="n">flag</span><span class="p">.</span><span class="n">Args</span><span class="p">()</span>
+	<span class="n">sort</span><span class="p">.</span><span class="n">Strings</span><span class="p">(</span><span class="n">sources</span><span class="p">)</span>
+
+	<span class="k">if</span> <span class="n">flag</span><span class="p">.</span><span class="n">NArg</span><span class="p">()</span> <span class="p">&lt;=</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="k">return</span>
+	<span class="p">}</span>
+
+	<span class="n">ensureDirectory</span><span class="p">(</span><span class="s">&quot;docs&quot;</span><span class="p">)</span>
+	<span class="n">ioutil</span><span class="p">.</span><span class="n">WriteFile</span><span class="p">(</span><span class="s">&quot;docs/gocco.css&quot;</span><span class="p">,</span> <span class="n">bytes</span><span class="p">.</span><span class="n">NewBufferString</span><span class="p">(</span><span class="n">Css</span><span class="p">).</span><span class="n">Bytes</span><span class="p">(),</span> <span class="mo">0755</span><span class="p">)</span>
+
+	<span class="n">wg</span> <span class="p">:=</span> <span class="nb">new</span><span class="p">(</span><span class="n">sync</span><span class="p">.</span><span class="n">WaitGroup</span><span class="p">)</span>
+	<span class="n">wg</span><span class="p">.</span><span class="n">Add</span><span class="p">(</span><span class="n">flag</span><span class="p">.</span><span class="n">NArg</span><span class="p">())</span>
+	<span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">arg</span> <span class="p">:=</span> <span class="k">range</span> <span class="n">flag</span><span class="p">.</span><span class="n">Args</span><span class="p">()</span> <span class="p">{</span>
+		<span class="k">go</span> <span class="n">generateDocumentation</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">wg</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="n">wg</span><span class="p">.</span><span class="n">Wait</span><span class="p">()</span>
+<span class="p">}</span>
+
+</pre></div>
+            </td>
+          </tr>
+          
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>
