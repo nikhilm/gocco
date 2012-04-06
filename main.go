@@ -25,6 +25,7 @@ package main
 
 import (
 	"bytes"
+	"./gocco_resources"
 	"container/list"
 	"flag"
 	"github.com/russross/blackfriday"
@@ -244,7 +245,7 @@ func goccoTemplate(data TemplateData) []byte {
 		template.FuncMap{
 			"base":        filepath.Base,
 			"destination": destination,
-		}).Parse(resources.HTML)
+		}).Parse(gocco_resources.HTML)
 	if err != nil {
 		panic(err)
 	}
@@ -298,7 +299,7 @@ func main() {
 	}
 
 	ensureDirectory("docs")
-	ioutil.WriteFile("docs/gocco.css", bytes.NewBufferString(resources.Css).Bytes(), 0755)
+	ioutil.WriteFile("docs/gocco.css", bytes.NewBufferString(gocco_resources.Css).Bytes(), 0755)
 
 	wg := new(sync.WaitGroup)
 	wg.Add(flag.NArg())
