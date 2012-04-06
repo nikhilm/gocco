@@ -30,7 +30,6 @@ import (
 	"bytes"
 	"container/list"
 	"flag"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -62,7 +61,6 @@ type Language struct {
 	name           string
 	symbol         string
 	commentMatcher *regexp.Regexp
-	commentFilter  *regexp.Regexp
 	dividerText    string
 	dividerHTML    *regexp.Regexp
 }
@@ -91,6 +89,7 @@ func generateDocumentation(source string, wg *sync.WaitGroup) {
 func parse(source string, code []byte) *list.List {
 	lines := bytes.Split(code, []byte("\n"))
 	sections := new(list.List)
+	sections.Init()
 	language := getLanguage(source)
 
 	var hasCode bool
@@ -98,21 +97,26 @@ func parse(source string, code []byte) *list.List {
 	var docsText = new(bytes.Buffer)
 
 	save := func(docs, code []byte) {
-		sections.PushBack(&Section{docs, code, nil, nil})
+        docsCopy, codeCopy := make([]byte, len(docs)), make([]byte, len(code))
+        copy(docsCopy, docs)
+        copy(codeCopy, code)
+		sections.PushBack(&Section{docsCopy, codeCopy, nil, nil})
 	}
 
 	for _, line := range lines {
-		if language.commentMatcher.Match(line) && !language.commentFilter.Match(line) {
+		if language.commentMatcher.Match(line) {
 			if hasCode {
 				save(docsText.Bytes(), codeText.Bytes())
 				hasCode = false
+				codeText.Reset()
+				docsText.Reset()
 			}
 			docsText.Write(language.commentMatcher.ReplaceAll(line, nil))
 			docsText.WriteString("\n")
 		} else {
 			hasCode = true
 			codeText.Write(line)
-			docsText.WriteString("\n")
+			codeText.WriteString("\n")
 		}
 	}
 	save(docsText.Bytes(), codeText.Bytes())
@@ -137,13 +141,13 @@ func highlight(source string, sections *list.List) {
     io.Copy(buf, pygmentsOutput)
 
     output := buf.Bytes()
-
 	output = bytes.Replace(output, []byte(highlightStart), nil, -1)
 	output = bytes.Replace(output, []byte(highlightEnd), nil, -1)
+
     for e := sections.Front(); e != nil; e = e.Next() {
         index := language.dividerHTML.FindIndex(output)
         if index == nil {
-        	break
+            index = []int{len(output), len(output)}
         }
 
         fragment := output[0:index[0]]
@@ -213,7 +217,6 @@ func setup() {
 
 	for _, lang := range languages {
 		lang.commentMatcher, _ = regexp.Compile("^\\s*" + lang.symbol + "\\s?")
-		lang.commentFilter, _ = regexp.Compile("(^#![/]|^\\s*#\\{)")
 		lang.dividerText = "\n" + lang.symbol + "DIVIDER\n"
 		lang.dividerHTML, _ = regexp.Compile("\\n*<span class=\"c1?\">" + lang.symbol + "DIVIDER<\\/span>\\n*")
 	}
@@ -240,5 +243,4 @@ func main() {
 		go generateDocumentation(arg, wg)
 	}
 	wg.Wait()
-	fmt.Println("Term\n")
 }
