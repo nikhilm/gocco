@@ -209,12 +209,13 @@ func ensureDirectory(name string) {
 	os.MkdirAll(name, 0755)
 }
 
-func setup() {
+func setupLanguages() {
 	languages = make(map[string]*Language)
-	languages[".go"] = new(Language)
-	languages[".go"].name = "go"
-	languages[".go"].symbol = "//"
+	languages[".go"] = &Language{"go", "//", nil, "", nil}
+}
 
+func setup() {
+    setupLanguages()
 	for _, lang := range languages {
 		lang.commentMatcher, _ = regexp.Compile("^\\s*" + lang.symbol + "\\s?")
 		lang.dividerText = "\n" + lang.symbol + "DIVIDER\n"
