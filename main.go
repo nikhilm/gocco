@@ -239,19 +239,12 @@ func generateHTML(source string, sections *list.List) {
 func goccoTemplate(data TemplateData) []byte {
 	// this hack is required because `ParseFiles` doesn't
 	// seem to work properly, always complaining about empty templates
-	r, x := ioutil.ReadFile(filepath.Join(packageLocation, "resources/gocco.got"))
-	if x != nil {
-		panic(x)
-	}
-	b := new(bytes.Buffer)
-	b.Write(r)
-
 	t, err := template.New("gocco").Funcs(
 		// introduce the two functions that the template needs
 		template.FuncMap{
 			"base":        filepath.Base,
 			"destination": destination,
-		}).Parse(b.String())
+		}).Parse(resources.HTML)
 	if err != nil {
 		panic(err)
 	}
@@ -294,17 +287,9 @@ func setup() {
 
 // let's Go!
 func main() {
-	execPath, _ := exec.LookPath(os.Args[0])
-	packageLocation, _ = filepath.Abs(filepath.Dir(execPath))
-
-	if filepath.Base(packageLocation) == "bin" {
-		packageLocation = filepath.Dir(packageLocation)
-	}
-
 	setup()
 
 	flag.Parse()
-
 	sources = flag.Args()
 	sort.Strings(sources)
 
@@ -313,8 +298,7 @@ func main() {
 	}
 
 	ensureDirectory("docs")
-	styles, _ := ioutil.ReadFile(filepath.Join(packageLocation, "resources/gocco.css"))
-	ioutil.WriteFile("docs/gocco.css", styles, 0755)
+	ioutil.WriteFile("docs/gocco.css", bytes.NewBufferString(resources.Css).Bytes(), 0755)
 
 	wg := new(sync.WaitGroup)
 	wg.Add(flag.NArg())

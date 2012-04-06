@@ -1,3 +1,6 @@
+package resources
+
+var Css = `
 /*--------------------- Layout and Typography ----------------------------*/
 body {
   font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, FreeSerif, serif;
@@ -184,3 +187,63 @@ body .vc { color: #19469D }                     /* Name.Variable.Class */
 body .vg { color: #19469D }                     /* Name.Variable.Global */
 body .vi { color: #19469D }                     /* Name.Variable.Instance */
 body .il { color: #666666 }                     /* Literal.Number.Integer.Long */
+`
+
+var HTML = `
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>{{ .Title }}</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="gocco.css" />
+</head>
+<body>
+  <div id="container">
+    <div id="background"></div>
+    {{ if .Multiple }}
+      <div id="jump_to">
+        Jump To &hellip;
+        <div id="jump_wrapper">
+          <div id="jump_page">
+              {{ range .Sources }}
+              <a class="source" href="{{ destination . | base }}">
+                  {{ base . }}
+              </a>
+              {{ end }}
+          </div>
+        </div>
+      </div>
+    {{ end }}
+    <table cellpadding="0" cellspacing="0">
+      <thead>
+        <tr>
+          <th class="docs">
+            <h1>
+                {{ .Title }}
+            </h1>
+          </th>
+          <th class="code">
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+          {{ range .Sections }}
+          <tr id="section-{{ .Index }}">
+            <td class="docs">
+              <div class="pilwrap">
+                  <a class="pilcrow" href="#section-{{ .Index }}">&#182;</a>
+              </div>
+                {{ .DocsHTML }}
+            </td>
+            <td class="code">
+                {{ .CodeHTML }}
+            </td>
+          </tr>
+          {{ end }}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>
+`
