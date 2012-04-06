@@ -8,7 +8,7 @@
 //
 // If you install Gocco, you can run it from the command-line:
 //
-// gocco src/*.go
+// gocco *.go
 //
 // ...will generate an HTML documentation page for each of the named source
 // files, with a menu linking to the other pages, saving it into a `docs`
@@ -20,7 +20,7 @@
 // To install Gocco, first make sure you have [Pygments](http://pygments.org/)
 // Then, with the go tool:
 //
-//     go install github.com/nikhilm/gocco
+//     go get github.com/nikhilm/gocco
 package main
 
 import (
