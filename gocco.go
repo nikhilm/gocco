@@ -34,6 +34,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -99,6 +100,9 @@ var languages map[string]*Language
 
 // paths of all the source files, sorted
 var sources []string
+
+// absolute path to get resources
+var packageLocation string
 
 // Wrap the code in these
 const highlightStart = "<div class=\"highlight\"><pre>"
@@ -236,7 +240,7 @@ func generateHTML(source string, sections *list.List) {
 func goccoTemplate(data TemplateData) []byte {
 	// this hack is required because `ParseFiles` doesn't
 	// seem to work properly, always complaining about empty templates
-	r, x := ioutil.ReadFile("resources/gocco.got")
+	r, x := ioutil.ReadFile(path.Join(packageLocation, "resources/gocco.got"))
 	if x != nil {
 		panic(x)
 	}
@@ -291,6 +295,13 @@ func setup() {
 
 // let's Go!
 func main() {
+	execPath, _ := exec.LookPath(os.Args[0])
+	packageLocation, _ = filepath.Abs(filepath.Dir(execPath))
+
+	if filepath.Base(packageLocation) == "bin" {
+		packageLocation = filepath.Dir(packageLocation)
+	}
+
 	setup()
 
 	flag.Parse()
@@ -303,7 +314,7 @@ func main() {
 	}
 
 	ensureDirectory("docs")
-	styles, _ := ioutil.ReadFile("resources/gocco.css")
+	styles, _ := ioutil.ReadFile(path.Join(packageLocation, "resources/gocco.css"))
 	ioutil.WriteFile("docs/gocco.css", styles, 0755)
 
 	wg := new(sync.WaitGroup)
