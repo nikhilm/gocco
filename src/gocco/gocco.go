@@ -137,68 +137,72 @@ func highlight(source string, sections *list.List) {
 	}
 	pygmentsInput.Close()
 
-    buf := new(bytes.Buffer)
-    io.Copy(buf, pygmentsOutput)
+	buf := new(bytes.Buffer)
+	io.Copy(buf, pygmentsOutput)
 
-    output := buf.Bytes()
+	output := buf.Bytes()
 	output = bytes.Replace(output, []byte(highlightStart), nil, -1)
 	output = bytes.Replace(output, []byte(highlightEnd), nil, -1)
 
-    for e := sections.Front(); e != nil; e = e.Next() {
-        index := language.dividerHTML.FindIndex(output)
-        if index == nil {
-            index = []int{len(output), len(output)}
-        }
+	for e := sections.Front(); e != nil; e = e.Next() {
+		index := language.dividerHTML.FindIndex(output)
+		if index == nil {
+			index = []int{len(output), len(output)}
+		}
 
-        fragment := output[0:index[0]]
-        output = output[index[1]:]
-        e.Value.(*Section).CodeHTML = bytes.Join([][]byte{[]byte(highlightStart), []byte(highlightEnd)}, fragment)
-        e.Value.(*Section).DocsHTML = blackfriday.MarkdownCommon(e.Value.(*Section).docsText)
-    }
+		fragment := output[0:index[0]]
+		output = output[index[1]:]
+		e.Value.(*Section).CodeHTML = bytes.Join([][]byte{[]byte(highlightStart), []byte(highlightEnd)}, fragment)
+		e.Value.(*Section).DocsHTML = blackfriday.MarkdownCommon(e.Value.(*Section).docsText)
+	}
 }
 
+// compute the output location (in `docs/`) for the file
 func destination(filepath string) string {
-    base := path.Base(filepath)
-    return "docs/" + base[0:strings.LastIndex(base, path.Ext(base))] + ".html"
+	base := path.Base(filepath)
+	return "docs/" + base[0:strings.LastIndex(base, path.Ext(base))] + ".html"
 }
 
+// render the final HTML
 func generateHTML(source string, sections *list.List) {
-    title := path.Base(source)
-    dest := destination(source)
-    sectionsArray := make([]*TemplateSection, sections.Len())
-    for e, i := sections.Front(), 0; e != nil; e, i = e.Next(), i+1 {
-    	var sec = e.Value.(*Section)
-        docsBuf := bytes.NewBuffer(sec.DocsHTML)
-        codeBuf := bytes.NewBuffer(sec.CodeHTML)
-		sectionsArray[i] = &TemplateSection{docsBuf.String(), codeBuf.String(), i+1}
-    }
-    html := goccoTemplate(TemplateData{title, sectionsArray, sources, len(sources) > 1})
-    log.Println("gocco: ", source, " -> ", dest)
-    ioutil.WriteFile(dest, html, 0644)
+	title := path.Base(source)
+	dest := destination(source)
+	// convert every `Section` into corresponding `TemplateSection`
+	sectionsArray := make([]*TemplateSection, sections.Len())
+	for e, i := sections.Front(), 0; e != nil; e, i = e.Next(), i+1 {
+		var sec = e.Value.(*Section)
+		docsBuf := bytes.NewBuffer(sec.DocsHTML)
+		codeBuf := bytes.NewBuffer(sec.CodeHTML)
+		sectionsArray[i] = &TemplateSection{docsBuf.String(), codeBuf.String(), i + 1}
+	}
+	// run through the Go template
+	html := goccoTemplate(TemplateData{title, sectionsArray, sources, len(sources) > 1})
+	log.Println("gocco: ", source, " -> ", dest)
+	ioutil.WriteFile(dest, html, 0644)
 }
 
 func goccoTemplate(data TemplateData) []byte {
-    r, x := ioutil.ReadFile("resources/docco.jst")
-    if x != nil {
-    	panic(x)
-    }
-    b := new(bytes.Buffer)
-    b.Write(r)
+	r, x := ioutil.ReadFile("resources/gocco.got")
+	if x != nil {
+		panic(x)
+	}
+	b := new(bytes.Buffer)
+	b.Write(r)
 
-    t, err := template.New("gocco").Funcs(
-        template.FuncMap{
-            "base": path.Base,
-            "destination": destination,
-        }).Parse(b.String())
-    if err != nil {
-    	panic(err)
-    }
-    buf := new(bytes.Buffer)
-    err = t.Execute(buf, data)
-    if err != nil {
-    	panic(err)
-    }
-    return buf.Bytes()
+	t, err := template.New("gocco").Funcs(
+		template.FuncMap{
+			"base":        path.Base,
+			"destination": destination,
+		}).Parse(b.String())
+	if err != nil {
+		panic(err)
+	}
+	buf := new(bytes.Buffer)
+	err = t.Execute(buf, data)
+	if err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
 }
 
 func getLanguage(source string) *Language {
