@@ -33,7 +33,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -214,14 +213,14 @@ func highlight(source string, sections *list.List) {
 }
 
 // compute the output location (in `docs/`) for the file
-func destination(filepath string) string {
-	base := path.Base(filepath)
-	return "docs/" + base[0:strings.LastIndex(base, path.Ext(base))] + ".html"
+func destination(source string) string {
+	base := filepath.Base(source)
+	return "docs/" + base[0:strings.LastIndex(base, filepath.Ext(base))] + ".html"
 }
 
 // render the final HTML
 func generateHTML(source string, sections *list.List) {
-	title := path.Base(source)
+	title := filepath.Base(source)
 	dest := destination(source)
 	// convert every `Section` into corresponding `TemplateSection`
 	sectionsArray := make([]*TemplateSection, sections.Len())
@@ -240,7 +239,7 @@ func generateHTML(source string, sections *list.List) {
 func goccoTemplate(data TemplateData) []byte {
 	// this hack is required because `ParseFiles` doesn't
 	// seem to work properly, always complaining about empty templates
-	r, x := ioutil.ReadFile(path.Join(packageLocation, "resources/gocco.got"))
+	r, x := ioutil.ReadFile(filepath.Join(packageLocation, "resources/gocco.got"))
 	if x != nil {
 		panic(x)
 	}
@@ -250,7 +249,7 @@ func goccoTemplate(data TemplateData) []byte {
 	t, err := template.New("gocco").Funcs(
 		// introduce the two functions that the template needs
 		template.FuncMap{
-			"base":        path.Base,
+			"base":        filepath.Base,
 			"destination": destination,
 		}).Parse(b.String())
 	if err != nil {
@@ -266,7 +265,7 @@ func goccoTemplate(data TemplateData) []byte {
 
 // get a `Language` given a path
 func getLanguage(source string) *Language {
-	return languages[path.Ext(source)]
+	return languages[filepath.Ext(source)]
 }
 
 // make sure `docs/` exists
@@ -314,7 +313,7 @@ func main() {
 	}
 
 	ensureDirectory("docs")
-	styles, _ := ioutil.ReadFile(path.Join(packageLocation, "resources/gocco.css"))
+	styles, _ := ioutil.ReadFile(filepath.Join(packageLocation, "resources/gocco.css"))
 	ioutil.WriteFile("docs/gocco.css", styles, 0755)
 
 	wg := new(sync.WaitGroup)
