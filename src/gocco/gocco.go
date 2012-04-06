@@ -60,34 +60,34 @@ type Section struct {
 type TemplateSection struct {
 	DocsHTML string
 	CodeHTML string
-    // The `Index` field is used to create anchors to sections
-	Index    int
+	// The `Index` field is used to create anchors to sections
+	Index int
 }
 
 // a `Language` describes a programming language
 type Language struct {
 	// the `Pygments` name of the language
-	name           string
+	name string
 	// The comment delimiter
-	symbol         string
+	symbol string
 	// The regular expression to match the comment delimiter
 	commentMatcher *regexp.Regexp
 	// Used as a placeholder so we can parse back Pygments output
 	// and put the sections together
-	dividerText    string
+	dividerText string
 	// The HTML equivalent
-	dividerHTML    *regexp.Regexp
+	dividerHTML *regexp.Regexp
 }
 
 // a `TemplateData` is per-file
 type TemplateData struct {
 	// Title of the HTML output
-	Title    string
+	Title string
 	// The Sections making up this file
 	Sections []*TemplateSection
 	// A full list of source files so that a table-of-contents can
 	// be generated
-	Sources  []string
+	Sources []string
 	// Only generate the TOC is there is more than one file
 	// Go's templating system does not allow expressions in the
 	// template, so calculate it outside
@@ -133,7 +133,7 @@ func parse(source string, code []byte) *list.List {
 	var codeText = new(bytes.Buffer)
 	var docsText = new(bytes.Buffer)
 
-    // save a new section
+	// save a new section
 	save := func(docs, code []byte) {
 		// deep copy the slices since slices always refer to the same storage
 		// by default
@@ -244,7 +244,7 @@ func goccoTemplate(data TemplateData) []byte {
 	b.Write(r)
 
 	t, err := template.New("gocco").Funcs(
-	    // introduce the two functions that the template needs
+		// introduce the two functions that the template needs
 		template.FuncMap{
 			"base":        path.Base,
 			"destination": destination,
@@ -279,9 +279,9 @@ func setupLanguages() {
 }
 
 func setup() {
-    setupLanguages()
+	setupLanguages()
 
-    // create the regular expressions based on the language comment symbol
+	// create the regular expressions based on the language comment symbol
 	for _, lang := range languages {
 		lang.commentMatcher, _ = regexp.Compile("^\\s*" + lang.symbol + "\\s?")
 		lang.dividerText = "\n" + lang.symbol + "DIVIDER\n"
