@@ -107,7 +107,7 @@ var packageLocation string
 const highlightStart = "<div class=\"highlight\"><pre>"
 const highlightEnd = "</pre></div>"
 
-// ### Main documentation generation functions
+// ## Main documentation generation functions
 
 // Generate the documentation for a single source file
 // by splitting it into sections, highlighting each section
