@@ -1,4 +1,4 @@
-package gocco_resources
+package main
 
 var Css = `
 /*--------------------- Layout and Typography ----------------------------*/
